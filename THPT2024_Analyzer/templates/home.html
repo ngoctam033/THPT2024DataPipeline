@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Home - My Site{% endblock %}
+
+{% block extra_css %}
+    <!-- Thêm các file CSS tùy chọn cho trang home -->
+    <link rel="stylesheet" href="{% static 'css/home.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+    <!-- Thêm các file JS tùy chọn cho trang home -->
+    <script src="{% static 'js/getAllScore.js' %}"></script>
+    <script src="{% static 'js/get_top_student.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+    {% include 'chart.html' %}
+{% endblock %}

@@ -1,0 +1,108 @@
+services:  # Khối định nghĩa các dịch vụ sẽ được Docker Compose quản lý
+  web:
+    build: ./THPT2024_Analyzer
+    container_name: django-1
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./THPT2024_Analyzer:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - kafka
+      - db
+    networks:
+      - app-network
+
+  zookeeper:
+    image: docker.io/bitnami/zookeeper:3.9
+    container_name: zookeeper-1
+    restart: always
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - app-network
+
+  kafka:
+    image: docker.io/bitnami/kafka:3.4
+    container_name: kafka-1 
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=INSIDE://0.0.0.0:9093,OUTSIDE://0.0.0.0:9092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INSIDE://kafka-1:9093,OUTSIDE://localhost:9092
+      - KAFKA_INTER_BROKER_LISTENER_NAME=OUTSIDE
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list" ]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    networks:
+      - app-network
+
+  init-kafka:
+    image: confluentinc/cp-kafka:6.1.1
+    depends_on:
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    networks:
+      - app-network
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server kafka:9093 --list
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server kafka-1:9093 --create --if-not-exists --topic thpt_2024 --replication-factor 1 --partitions 1
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server kafka-1:9093 --list
+      "
+ 
+  thpt2024_crawler:  # Đặt tên cho dịch vụ, ở đây là 'thpt2024_crawler', thường được sử dụng để nhận diện dịch vụ trong Docker Compose
+    container_name: crawler-1
+    build:  # Thông tin cần thiết để xây dựng Docker image cho dịch vụ này
+      context: ./THPT2024_crawler_producer  # Thư mục chứa Dockerfile và các file cần thiết cho quá trình build image
+      dockerfile: Dockerfile  # Tên của file Dockerfile được sử dụng để chỉ định cách xây dựng image
+    depends_on:
+      - web
+    volumes:
+      - ./THPT2024_crawler_producer/src:/app/src  # Gắn kết thư mục src từ host vào container
+    networks:
+      - app-network
+
+  thpt2024_kafka_connect:
+    build:  # Thông tin cần thiết để xây dựng Docker image cho dịch vụ này
+      context: ./THPT2024_Kafka_consumers  # Thư mục chứa Dockerfile và các file cần thiết cho quá trình build image
+      dockerfile: Dockerfile  # Tên của file Dockerfile được sử dụng để chỉ định cách xây dựng image
+    container_name: kafka_consumers
+    depends_on:
+      - kafka
+      - web
+      - init-kafka
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./THPT2024_Kafka_consumers:/app  # Gắn kết thư mục src từ host vào container
+    networks:
+      - app-network
+  db:
+      image: postgres:13
+      container_name: postgres-1
+      environment:
+        POSTGRES_DB: mydatabase
+        POSTGRES_USER: myuser
+        POSTGRES_HOST_AUTH_METHOD: trust
+      ports:
+        - "5432:5432"
+      networks:
+        - app-network
+
+networks:
+  app-network:
+    driver: bridge

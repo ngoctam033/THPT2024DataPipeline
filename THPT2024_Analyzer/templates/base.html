@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}My Site{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+
+    <!-- Block for additional CSS files -->
+    {% block extra_css %}
+    {% endblock %}
+    <!-- Block for additional JS files -->
+    {% block extra_js %}
+    {% endblock %}
+</head>
+<body>
+    <header>
+        <h1>My Django Site</h1>
+        <nav>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/about/">About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+    </footer>
+
+    <!-- Load main JavaScript file -->
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

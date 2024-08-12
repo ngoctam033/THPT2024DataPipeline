@@ -1,0 +1,3 @@
+from kafka_consumers import start_consumer_for_save_to_database
+
+start_consumer_for_save_to_database()
